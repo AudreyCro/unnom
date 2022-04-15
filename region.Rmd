@@ -1,0 +1,179 @@
+# Evolution des ressources par continent
+
+```{r setupregion, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+
+library(flexdashboard)
+library(tidyverse)
+library(ggsci)
+
+```
+
+
+##  Evolution de la population régionale de 1950 à 1992
+
+```{r POPUr, out.width = '100%'}
+
+pop <- read_delim("WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES_UN.csv",
+                  skip=12,
+                  na="...",
+                  locale=locale(decimal_mark = ","))
+
+regPop <- pop |> 
+  filter(Type=="Region") |> 
+  pivot_longer(cols=(8:50),
+               names_to="annee",
+               values_to="population") |> 
+  select(3,36,37) |> 
+  rename(region=1) |> 
+  mutate(region = case_when(region=="Northern America" ~ "America",
+                            region=="Latin America and the Caribbean" ~ "America",
+                            TRUE ~ as.character(region))) |> 
+  mutate(region = fct_reorder(region, population))
+
+regPopG <- ggplot(regPop)+
+  aes(annee,
+      population,
+      fill=region,
+      group=region)+
+  geom_col()+
+  scale_y_continuous(labels=scales::comma)
+
+regPopG+labs(title="Evolution régionale de la population de 1950 à 1992",
+       x="Années",
+       y="Nombre d'humains",
+       fill="Continents")+
+  theme(panel.background = element_blank(),
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45))+
+  scale_fill_tron()
+
+```
+
+## Production alimentaire annuelle régionale (tonnes) de 1961 à 2020
+
+```{r ALIMr, out.width = '100%'}
+
+food<-read_delim("Production_Crops_Livestock_E_All_Data.csv") |> 
+  select(-ends_with("F")) |> 
+  pivot_longer(cols=starts_with("Y"),
+               names_to="Annee",
+               values_to="Valeurs") |> 
+  relocate(Annee, .before = 1) |> 
+  mutate(Annee=str_remove(Annee,"Y"))
+
+regFood <- food |>
+  filter(Element=="Production") |> 
+  filter(str_detect(Item,pattern="Total")) |> 
+  mutate(Item=str_remove(Item,", Total")) |> 
+  select(1,3,5,9) |> 
+  filter(Area=="Asia"|Area=="Africa"|Area=="Europe"|Area=="Oceania"|Area=="Americas") |> 
+  mutate(Area=as.factor(Area))
+
+regFoodG <- ggplot(regFood)+
+  aes(Annee,
+      Valeurs,
+      col=Area,
+      group=Area)+
+  facet_grid(Item~., scales="free")+
+  geom_point()+
+  geom_line()+
+  scale_y_continuous(labels=scales::comma)
+
+regFoodG+labs(title="Production alimentaire régionale de 1961 à 2020",
+       x="Années",
+       y="Quantités produites (Tonnes)",
+       col="Continents")+
+  theme(panel.background = element_blank(),
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45))+
+  scale_color_tron()
+
+```
+
+
+## Consommation annuelle régionale des énergies (TWh) de 1965 à 2020
+
+### Par type d'énergie
+
+```{r ENER1r, out.width = '100%'}
+
+isocode <- read_delim("countries_iso_codes.csv", locale=locale(encoding="UTF-8")) |> 
+  rename(pays=1,iso=3,cocode=4) |> 
+  mutate(cocode=as.numeric(cocode))
+
+energy <- read_delim("owid-energy-data__OWID.csv")
+
+regEnergy <- energy |> 
+  select(1,2,3, contains("consumption")) |> 
+  pivot_longer(cols=(4:16),
+               names_to="source",
+               values_to="conso") |> 
+  mutate(source=str_remove(source,"_consumption")) |> 
+  left_join(isocode,by=c("iso_code"="iso")) |> 
+  select(1,2,3,4,5,10) |> 
+  mutate(region=as.factor(region)) |> 
+  mutate(source=as.factor(source)) |> 
+  mutate(region=case_when(country=="Reunion" ~ "Africa",
+country=="Middle East" ~ "Asia",
+country %in% c("Czechoslovakia","Kosovo","Yugoslavia") ~ "Europe",
+country=="United States Pacific Islands" ~ "Oceania",
+country %in% c("Falkland Islands","Netherlands Antilles") ~ "Americas",
+TRUE ~ as.character(region))) |> 
+  filter(is.na(region)==FALSE)
+
+regEnergyType <- regEnergy |> 
+  filter(source=="fossil_fuel"|source=="low_carbon"|source=="renewables"|source=="other_renewable")
+
+reTypeG <- ggplot(regEnergyType)+
+  aes(year,
+      conso,
+      col=region,
+      group=region)+
+  facet_grid(source~., scales="free")+
+  geom_point()+
+  scale_y_continuous(labels=scales::comma)+
+  scale_x_continuous(limits = c(1965,2020))
+
+reTypeG+labs(title="Consommation annuelle régionale des énergies (TWh)",
+       x="Années",
+       y="Quantités consommées (TWh)",
+       col="Continents")+
+  theme(panel.background = element_blank(),
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45))+
+  scale_color_tron()
+
+```
+
+### Par source d'énergie
+
+```{r ENER2r, out.width = '100%'}
+
+regEnergySource <- regEnergy |> 
+  filter(source=="biofuel"|source=="coal"|source=="gas"|source=="hydro"|source=="nuclear"|source=="oil"|source=="solar"|source=="wind")
+
+reSourceG <- ggplot(regEnergySource)+
+  aes(year,
+      conso,
+      col=region,
+      group=region)+
+  facet_grid(source~., scales="free")+
+  geom_point()+
+  scale_y_continuous(labels=scales::comma)+
+  scale_x_continuous(limits = c(1965,2020))
+
+reSourceG+labs(title="Consommation annuelle régionale des énergies (TWh)",
+       x="Années",
+       y="Quantités consommées (TWh)",
+       col="Continents")+
+  theme(panel.background = element_blank(),
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45))+
+  scale_color_tron()
+
+```

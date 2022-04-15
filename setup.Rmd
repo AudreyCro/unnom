@@ -15,7 +15,7 @@ https://github.com/oswaldoforey/mon_livre.git
 
 7. Dans la console, taper usethis::use_git() et dire Yes aux deux demandes. Cela redémarre R et installer l'onglet git dans la fenêtre environnement.
 8. Cliquer ensuite dans l'onglet terminal de la fenêtre console pour ouvrir le terminal. 
-9. Taper git remote add suivi du nom que vous souhaitez donner à la connection suivi de l'uril github de votre repo copiée précedémment, soit quelque chose comme:
+9. Taper git remote add suivi du nom que vous souhaitez donner à la connexion suivi de l'uril github de votre repo copiée précedémment, soit quelque chose comme:
 git remote add unnom https://github.com/AudreyCro/unnom.git
 10. Taper ensuite git push --set-upstream unnom master
 11. Retourner sur github.com/username/"mon_livre" et rafraichir, les fichiers sont là! 

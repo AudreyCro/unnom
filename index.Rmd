@@ -1,6 +1,6 @@
 --- 
-title: "Bookdown template"
-author: "Oswaldo Forey, adapté de Julie Lowndes"
+title: "Evolution des ressources"
+author: "Audrey"
 date: "`r Sys.Date()`"
 site: bookdown::bookdown_site
 # output: bookdown::gitbook
@@ -9,7 +9,60 @@ bibliography: [book.bib, packages.bib]
 biblio-style: apalike
 link-citations: yes
 github-repo: openscapes/series
-description: "A mini bookdown tutorial book on how to make bookdown books."
+description: "A mini study book on how terrestrian ressources are evolving."
 ---
 
-# Titre 1
+# Bienvenue !
+
+## Sujet de l'étude
+
+### Objectif
+
+Analyser l'évolution des ressources humaine, alimentaire et énergétique.
+
+### Données
+
+FAO. 2018. The future of food and agriculture – Alternative pathways to 2050. Rome.
+
+### Plan
+
+1) Monde
+
+  a) Population
+  b) Nourriture
+  c) Energie
+  
+2) Région
+
+  a) Population
+  b) Nourriture
+  c) Energie
+
+3) Pays
+
+  a) Population
+  b) Nourriture
+  c) Energie
+
+## Un bookdown en construction...
+
+### Futures modifications
+
+- Aération des axes
+- Unification des axes et graphiques
+
+### Futurs ajouts
+
+- Esthétique du site
+- Style du texte
+- Icônes
+- Logo
+- Images
+
+## Retour sur l'exercice
+
+Le sujet sur l'environnement est très intéressant car primordial.
+L'exercice sur le nettoyage et la préparation des données est complet et permet de revoir quasiment l'ensemble des notions vues en cours.
+L'exercice sur la création de support est indispensable pour nos avenirs professionnels.
+
+Finalement, il est préférable de travailler par fichier dans le document maître, quitte à transposer les éléments pour en présenter un plan différent sur les supports.

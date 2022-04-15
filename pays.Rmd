@@ -1,0 +1,337 @@
+```{r setuppays, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+library(shiny)
+library(tidyverse)
+library(lubridate)
+
+```
+
+```{r PAYS}
+
+library(shinydashboard)
+
+ui <- dashboardPage(
+  dashboardHeader(title='Analyse temporelle par pays'),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem(text='Menu',
+               tabName='tabs',
+        menuSubItem(text = 'Population',
+                    tabName='tab1' 
+                    ),
+        menuSubItem(text = 'Production alimentaire',
+                    tabName='tab2'
+                    ),
+        menuSubItem(text = "Consommation énergétique par type d'énergie",
+                    tabName='tab3'
+                    ),
+        menuSubItem(text = "Consommation énergétique par source d'énergie",
+                    tabName='tab4')
+      )
+    )
+  ),
+  dashboardBody(
+    tabItems(
+      tabItem(tabName='tab1',
+              titlePanel("Graphique de la population du pays de 1950 à 1992"),
+              box(uiOutput(outputId = "CHOIX_PAYS_POP"),
+                  status="success"),
+              fluidRow(
+                box(plotOutput(outputId = "POP_GRAPH"),)
+                )),
+      tabItem(tabName='tab2',
+              titlePanel("Graphique de la production alimentaire du pays de 1961 à 2020"),
+              box(uiOutput(outputId = "CHOIX_PAYS_FOOD"),
+                  status="success"),
+              fluidRow(
+                box(plotOutput(outputId = "FOOD_GRAPH"),)
+                )),
+      tabItem(tabName='tab3',
+              titlePanel("Graphique de la consommation énergétique du pays de 1965 à 2020 par type d'énergie"),
+              box(uiOutput(outputId = "CHOIX_PAYS_TYPE"),
+                  status="success"),
+              fluidRow(
+                box(plotOutput(outputId = "ENERGY_TYPE_GRAPH"),)
+                )),
+      tabItem(tabName='tab4',
+              titlePanel("Graphique de la consommation énergétique du pays de 1965 à 2020 par source d'énergie"),
+              box(uiOutput(outputId = "CHOIX_PAYS_SOURCE"),
+                  status="success"),
+              fluidRow(
+                box(plotOutput(outputId = "ENERGY_SOURCE_GRAPH"),)
+                ))
+    )
+)
+)
+
+server <- function(input, output, session) {
+  
+  isocode <- read_delim("countries_iso_codes.csv", locale=locale(encoding="UTF-8")) |> 
+  rename(pays=1,iso=3,cocode=4) |> 
+  mutate(cocode=as.numeric(cocode))
+  
+   df_pop <- reactive({
+     
+     read_delim("WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES_UN.csv",
+                  skip=12,
+                  na="...",
+                  locale=locale(decimal_mark = ",")) |> 
+  filter(Type=="Country/Area") |> 
+  pivot_longer(cols=(8:50),
+               names_to="annee",
+               values_to="population") |> 
+  select(3,5,36,37) |> 
+  rename(country=1,code=2) |> 
+  left_join(isocode,by=c("code"="cocode")) |> 
+  mutate(region = case_when(region=="Northern America" ~ "America",
+                            region=="Latin America and the Caribbean" ~ "America",
+                            country=="Channel Islands" ~ "Europe",
+                            TRUE ~ as.character(region))) |> 
+  select(1,2,3,4,9)
+     
+   })
+   
+   df_food <- reactive({
+     
+     read_delim("Production_Crops_Livestock_E_All_Data.csv", locale=locale(encoding="UTF-8")) |> 
+  select(-ends_with("F")) |> 
+  pivot_longer(cols=starts_with("Y"),
+               names_to="Annee",
+               values_to="Valeurs") |> 
+  relocate(Annee, .before = 1) |> 
+  mutate(Annee=str_remove(Annee,"Y")) |>
+  filter(Element=="Production") |> 
+  filter(str_detect(Item,pattern="Total")) |> 
+  mutate(Item=str_remove(Item,", Total")) |> 
+  select(1,3,5,9) |> 
+  left_join(isocode,by=c("Area"="pays")) |> 
+  select(1,2,3,4,6,7,9,12) |> 
+  group_by(region) |> 
+  mutate(region=as.factor(region)) |> 
+  select(1:4) |> 
+  mutate(Area=case_when(Area=="C�te d'Ivoire" ~ "Cote d'Ivoire",
+                        Area=="Democratic People's Republic of Korea" ~ "DR Korea",
+                        Area=="Democratic Republic of the Congo" ~ "DR Congo",
+                        Area=="Ethiopia PDR" ~ "DR Ethiopia",
+                        Area=="Republic of Korea" ~ "R Korea",
+                        Area=="Republic of Moldova" ~ "R Moldova",
+                        Area=="R�union" ~ "Reunion",
+                        Area=="United Republic of Tanzania" ~ "UR Tanzania",
+                            TRUE ~ as.character(Area))) |> 
+  mutate(region=case_when(Area=="Cote d'Ivoire" ~ "Africa",
+                          Area=="Czechoslovakia" ~ "Europe",
+                          Area=="DR Korea" ~ "Asia",
+                          Area=="DR Congo" ~ "Africa",
+                          Area=="DR Ethiopia" ~ "Africa",
+                          Area=="French Guyana" ~ "Americas",
+                          Area=="Palestine" ~ "Asia",
+                          Area=="R Korea" ~ "Asia",
+                          Area=="R Moldova" ~ "Europe",
+                          Area=="Reunion" ~ "Africa",
+                          Area=="Serbia and Montenegro" ~ "Europe",
+                          Area=="Sudan (former)" ~ "Africa",
+                          Area=="UR Tanzania" ~ "Africa",
+                          Area=="Yugoslav SFR" ~ "Europe",
+                          Area=="Caribbean" ~ "Americas",
+                          Area=="Melanesia" ~ "Oceania",
+                          Area=="Micronesia" ~ "Oceania",
+                          Area=="Polynesia" ~ "Oceania",
+                            TRUE ~ as.character(region))) |> 
+  filter(is.na(region)==FALSE)
+     
+   })
+   
+   df_type <- reactive({
+     
+     read_delim("owid-energy-data__OWID.csv") |> 
+  select(1,2,3, contains("consumption")) |> 
+  pivot_longer(cols=(4:16),
+               names_to="source",
+               values_to="conso") |> 
+  mutate(source=str_remove(source,"_consumption")) |> 
+  left_join(isocode,by=c("iso_code"="iso")) |> 
+  select(1,2,3,4,5,10) |> 
+  mutate(region=as.factor(region)) |> 
+  mutate(source=as.factor(source)) |> 
+  mutate(region=case_when(country=="Reunion" ~ "Africa",
+country=="Middle East" ~ "Asia",
+country %in% c("Czechoslovakia","Kosovo","Yugoslavia") ~ "Europe",
+country=="United States Pacific Islands" ~ "Oceania",
+country %in% c("Falkland Islands","Netherlands Antilles") ~ "Americas",
+TRUE ~ as.character(region))) |> 
+  filter(is.na(region)==FALSE) |> 
+  filter(source=="fossil_fuel"|source=="low_carbon"|source=="renewables"|source=="other_renewable") |> 
+  select(2:6)
+     
+   })
+   
+   df_source <- reactive({
+     
+     read_delim("owid-energy-data__OWID.csv") |> 
+  select(1,2,3, contains("consumption")) |> 
+  pivot_longer(cols=(4:16),
+               names_to="source",
+               values_to="conso") |> 
+  mutate(source=str_remove(source,"_consumption")) |> 
+  left_join(isocode,by=c("iso_code"="iso")) |> 
+  select(1,2,3,4,5,10) |> 
+  mutate(region=as.factor(region)) |> 
+  mutate(source=as.factor(source)) |> 
+  mutate(region=case_when(country=="Reunion" ~ "Africa",
+country=="Middle East" ~ "Asia",
+country %in% c("Czechoslovakia","Kosovo","Yugoslavia") ~ "Europe",
+country=="United States Pacific Islands" ~ "Oceania",
+country %in% c("Falkland Islands","Netherlands Antilles") ~ "Americas",
+TRUE ~ as.character(region))) |> 
+  filter(is.na(region)==FALSE) |> 
+  filter(source=="biofuel"|source=="coal"|source=="gas"|source=="hydro"|source=="nuclear"|source=="oil"|source=="solar"|source=="wind") |> 
+  select(2:6)
+     
+   })
+
+   
+   
+     output$CHOIX_PAYS_POP <- renderUI({
+     
+      selectInput(inputId="PAYS_POP",
+                   label="Pays",
+                   choices = df_pop() |> 
+                      distinct(country) |>
+                      arrange(country) |>  
+                      pull(country)  ,
+                   selected = "Burundi") 
+     
+   })
+     
+     output$CHOIX_PAYS_FOOD <- renderUI({
+     
+      selectInput(inputId="PAYS_FOOD",
+                   label="Pays",
+                   choices = df_food() |> 
+                      distinct(Area) |>
+                      arrange(Area) |>  
+                      pull(Area)  ,
+                   selected = "Burundi") 
+     
+   })
+     
+     output$CHOIX_PAYS_TYPE <- renderUI({
+     
+      selectInput(inputId="PAYS_TYPE",
+                   label="Pays",
+                   choices = df_type() |> 
+                      distinct(country) |>
+                      arrange(country) |>  
+                      pull(country)  ,
+                   selected = "Burundi") 
+     
+   })
+     
+     output$CHOIX_PAYS_SOURCE <- renderUI({
+     
+      selectInput(inputId="PAYS_SOURCE",
+                   label="Pays",
+                   choices = df_source() |> 
+                      distinct(country) |>
+                      arrange(country) |>  
+                      pull(country)  ,
+                   selected = "Burundi") 
+     
+   })
+     
+     
+     
+     output$POP_GRAPH <- renderPlot({
+     
+ df_pop() |> 
+    filter(country==input$PAYS_POP) |> 
+     ggplot()+
+         aes(annee,
+             population)+
+         geom_point()+
+         labs(title="Evolution nationale de la population de 1950 à 1992",
+              x="Années",
+              y="Nombre d'humains")+
+         theme(panel.background = element_blank(),
+               legend.position = "right",
+               axis.text.x = element_text(angle = 45))+
+         ggtitle(label=input$PAYS_POP)
+     
+   })
+     
+     output$FOOD_GRAPH <- renderPlot({
+     
+ df_food() |> 
+    filter(Area==input$PAYS_FOOD) |> 
+         ggplot()+
+         aes(Annee,
+             Valeurs,
+             col=Item)+
+         geom_point()+
+         scale_y_continuous(labels=scales::comma)+
+         labs(title="Production alimentaire nationale de 1961 à 2020",
+              x="Années",
+              y="Quantités produites (Tonnes)",
+              col="Aliments")+
+         theme(panel.background = element_blank(),
+               legend.position = "right",
+               axis.text.x = element_text(angle = 45))+
+         ggtitle(label=input$PAYS_FOOD)
+     
+   })
+     
+     output$ENERGY_TYPE_GRAPH <- renderPlot({
+     
+ df_type() |> 
+    filter(country==input$PAYS_TYPE) |> 
+     ggplot()+
+         aes(year,
+             conso,
+             col=source)+
+         geom_point()+
+         scale_y_continuous(labels=scales::comma)+
+         scale_x_continuous(limits = c(1965,2020))+
+         labs(title="Consommation énergétique nationale de 1965 à 2020 par type d'énergie",
+              x="Années",
+              y="Quantités consommées (TWh)",
+              col="Type d'énergie")+
+         theme(panel.background = element_blank(),
+               legend.position = "right",
+               axis.text.x = element_text(angle = 45))+
+         ggtitle(label=input$PAYS_TYPE)
+     
+   })
+     
+     output$ENERGY_SOURCE_GRAPH <- renderPlot({
+     
+ df_source() |> 
+    filter(country==input$PAYS_SOURCE) |> 
+     ggplot()+
+         aes(year,
+             conso,
+             col=source)+
+         geom_point()+
+         scale_y_continuous(labels=scales::comma)+
+         scale_x_continuous(limits = c(1965,2020))+
+         labs(title="Consommation énergétique nationale de 1965 à 2020 par source d'énergie",
+              x="Années",
+              y="Quantités consommées (TWh)",
+              col="Source d'énergie")+
+         theme(panel.background = element_blank(),
+               legend.position = "right",
+               axis.text.x = element_text(angle = 45))+
+         ggtitle(label=input$PAYS_SOURCE)
+     
+   })
+     
+}
+
+shinyApp(ui, server)
+
+
+
+```

@@ -1,0 +1,155 @@
+# Evolution des ressources mondiales
+
+
+```{r setupmonde, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+
+library(flexdashboard)
+library(tidyverse)
+library(ggsci)
+
+```
+
+
+##  Evolution de la population mondiale de 1950 à 1992 (N=1)
+
+```{r POPUm, out.width = '100%'}
+
+pop <- read_delim("WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES_UN.csv",
+                  skip=12,
+                  na="...",
+                  locale=locale(decimal_mark = ","))
+
+worldPop <- pop |> 
+  pivot_longer(cols=(8:50),
+               names_to="annee",
+               values_to="population") |> 
+  filter(Type=="World") |> 
+  select(annee,population)
+
+popG <- ggplot(worldPop)+
+  aes(annee,
+      population)+
+  geom_point(col="red")+
+  geom_line(col="red")+
+  scale_y_continuous(labels=scales::comma)
+
+popG+labs(x="Années",
+       y="Nombre d'humains")+
+  theme(panel.background = element_blank(),
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45))
+
+```
+
+
+## Production alimentaire annuelle mondiale (Tonnes) de 1961 à 2020 (N=1)
+
+```{r ALIMm, out.width = '100%'}
+
+food<-read_delim("Production_Crops_Livestock_E_All_Data.csv") |> 
+  select(-ends_with("F")) |> 
+  pivot_longer(cols=starts_with("Y"),
+               names_to="Année",
+               values_to="Valeurs") |> 
+  relocate(Année, .before = 1) |> 
+  mutate(Année=str_remove(Année,"Y"))
+
+worldFood <- food |> 
+  filter(Area=="World") |> 
+  filter(str_detect(Item,pattern="Total")) |> 
+  group_by(Année,Item) |> 
+  select(Année, Item, Valeurs) |> 
+  mutate(Item=str_remove(Item,", Total"))
+
+a <- ggplot(worldFood)+
+  aes(Année,
+      Valeurs,
+      col=Item)+
+  geom_point()+
+  scale_y_continuous(labels=scales::comma)
+
+a+labs(x="Années",
+       y="Quantités produites (Tonnes)",
+       colour="Aliments")+
+  theme(panel.background = element_blank(),
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45))+
+  scale_color_tron()
+
+```
+
+
+## Consommation annuelle mondiale des énergies (TWh) de 1965 à 2020 (N=1)
+
+### Par type d'énergie
+
+```{r ENER1m, out.width = '100%'}
+
+energy <- read_delim("owid-energy-data__OWID.csv")
+
+# Vérification des valeurs de Country
+world <- energy |> distinct(country)
+## Il existe une catégorie world
+
+worldEnergy <- energy |> 
+  filter(country=="World") |> 
+  select(year, contains("consumption")) |> 
+  pivot_longer(cols=(2:14),
+               names_to="source",
+               values_to="conso") |> 
+  mutate(source=str_remove(source,"_consumption"))
+
+worldEnergyType <- worldEnergy |> 
+  filter(source=="fossil_fuel"|source=="low_carbon"|source=="renewables"|source=="other_renewable")
+
+consoET <- ggplot(worldEnergyType)+
+  aes(year,
+      conso,
+      col=source,
+      group=source)+
+  geom_point()+
+  geom_line()+
+  scale_x_continuous(limits = c(1965,2020))+
+  scale_y_continuous(labels=scales::comma)
+  
+consoET+labs(x="Années",
+       y="Quantités consommées (TWh)",
+       colour="Types d'énergie")+
+  theme(panel.background = element_blank(),
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45))+
+  scale_color_tron()
+
+```
+
+### Par source d'énergie
+
+```{r ENER2m, out.width = '100%'}
+
+worldEnergySource <- worldEnergy |> 
+  filter(source=="biofuel"|source=="coal"|source=="gas"|source=="hydro"|source=="nuclear"|source=="oil"|source=="solar"|source=="wind")
+
+consoES <- ggplot(worldEnergySource)+
+  aes(year,
+      conso,
+      col=source,
+      group=source)+
+  geom_point()+
+  geom_line()+
+  scale_x_continuous(limits = c(1965,2020))+
+  scale_y_continuous(labels=scales::comma)
+
+consoES+labs(x="Années",
+       y="Quantités consommées (TWh)",
+       colour="Sources d'énergie")+
+  theme(panel.background = element_blank(),
+        legend.position = "right",
+        axis.text.x = element_text(angle = 45))+
+  scale_color_tron()
+
+```
